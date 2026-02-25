@@ -396,6 +396,95 @@
 
   let playerEmoji = '🐱';
 
+  // --- SOUND ENGINE (Web Audio API - no files needed!) ---
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+
+  function getAudio() {
+    if (!audioCtx) audioCtx = new AudioCtx();
+    return audioCtx;
+  }
+
+  function playHit() {
+    const ctx = getAudio();
+    // Descending "bonk" sound
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(320, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+  }
+
+  function playShoot() {
+    const ctx = getAudio();
+    // Quick "pew" sound
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(600, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.1);
+  }
+
+  function playGameOver() {
+    const ctx = getAudio();
+    // Sad trombone-ish descending tones
+    const notes = [400, 350, 300, 200];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.18);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.3);
+      osc.start(ctx.currentTime + i * 0.18);
+      osc.stop(ctx.currentTime + i * 0.18 + 0.35);
+    });
+  }
+
+  function playStart() {
+    const ctx = getAudio();
+    // Ascending "let's go!" jingle
+    const notes = [300, 400, 500, 650];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.15);
+      osc.start(ctx.currentTime + i * 0.1);
+      osc.stop(ctx.currentTime + i * 0.1 + 0.18);
+    });
+  }
+
+  function playChaosUp() {
+    const ctx = getAudio();
+    // Quick alert "ding ding"
+    [800, 1000].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.15);
+      osc.start(ctx.currentTime + i * 0.1);
+      osc.stop(ctx.currentTime + i * 0.1 + 0.18);
+    });
+  }
+
   function startGame() {
     score = 0;
     lives = 3;
@@ -415,6 +504,7 @@
 
     updateLives();
     scoreEl.textContent = 0;
+    playStart();
 
     clearInterval(scoreInterval);
     scoreInterval = setInterval(() => {
@@ -423,6 +513,8 @@
       chaosLevel = Math.min(100, Math.floor(score / 3));
       shotInterval = Math.max(300, 1200 - chaosLevel * 9);
       scoreEl.textContent = score;
+      // Play chaos alert at milestones
+      if (score % 10 === 0 && score > 0) playChaosUp();
       updateChaos();
     }, 1000);
 
@@ -494,8 +586,7 @@
     const proj = { el, x: px, y: py, vx: dx, vy: dy };
     projectiles.push(proj);
     canvas.appendChild(el);
-
-    // Extra shots at high chaos
+    playShoot();
     if (chaosLevel > 60 && Math.random() < 0.4) {
       setTimeout(() => { if(gameRunning) spawnProjectile(); }, 150);
     }
@@ -549,6 +640,7 @@
           p.el.remove();
           projectiles.splice(i, 1);
           takeHit(p.x, p.y);
+          playHit();
         }
       }
     }
@@ -634,7 +726,7 @@
     }
 
     gameoverScreen.classList.remove('hidden');
-  }
+    playGameOver();
 
   // Score popups occasionally
   setInterval(() => {
